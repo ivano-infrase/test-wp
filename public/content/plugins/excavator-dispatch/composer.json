@@ -1,0 +1,21 @@
+{
+    "name": "infrase/excavator-dispatch",
+    "description": "WordPress plugin to dispatch WhatsApp messages about available excavators to filtered Google Contacts.",
+    "type": "wordpress-plugin",
+    "license": "GPL-2.0+",
+    "require": {
+        "php": ">=7.4",
+        "microsoft/microsoft-graph": "^2.0",
+        "google/apiclient": "^2.15",
+        "guzzlehttp/guzzle": "^7.5"
+    },
+    "autoload": {
+        "psr-4": {
+            "InfraSe\\ExcavatorDispatch\\": "src/"
+        }
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "sort-packages": true
+    }
+}
