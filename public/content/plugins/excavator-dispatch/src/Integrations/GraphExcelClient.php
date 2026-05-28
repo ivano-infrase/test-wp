@@ -61,9 +61,13 @@ final class GraphExcelClient
             if (is_wp_error($resp)) {
                 throw new RuntimeException('Graph token: ' . $resp->get_error_message());
             }
-            $data = json_decode((string) wp_remote_retrieve_body($resp), true);
+            $code = (int) wp_remote_retrieve_response_code($resp);
+            $body = (string) wp_remote_retrieve_body($resp);
+            $data = json_decode($body, true);
             if (!is_array($data) || empty($data['access_token'])) {
-                throw new RuntimeException('Graph token: risposta non valida.');
+                $err = is_array($data) && !empty($data['error']) ? $data['error'] : 'unknown';
+                $desc = is_array($data) && !empty($data['error_description']) ? $data['error_description'] : $body;
+                throw new RuntimeException("Graph token [{$code}] {$err}: {$desc}");
             }
             return (string) $data['access_token'];
         });
