@@ -43,7 +43,7 @@ final class Settings
     {
         $sanitized = [];
         foreach ($values as $k => $v) {
-            $sanitized[(string) $k] = is_string($v) ? wp_unslash($v) : $v;
+            $sanitized[(string) $k] = $v;
         }
         foreach (self::SECRET_KEYS as $key) {
             if (!empty($sanitized[$key])) {
