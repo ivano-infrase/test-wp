@@ -143,7 +143,8 @@ final class GraphExcelClient
         $code = (int) wp_remote_retrieve_response_code($resp);
         $body = (string) wp_remote_retrieve_body($resp);
         if ($code < 200 || $code >= 300) {
-            throw new RuntimeException("Graph GET {$code}: {$body}");
+            $short_url = preg_replace('#^https://graph\.microsoft\.com/v1\.0#', '', $url);
+            throw new RuntimeException("Graph GET {$code} on {$short_url} :: {$body}");
         }
         $data = json_decode($body, true);
         return is_array($data) ? $data : [];
