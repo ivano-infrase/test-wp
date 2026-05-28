@@ -25,8 +25,19 @@ final class Cache
         delete_transient('excdis_' . $key);
     }
 
+    private const KNOWN_KEYS = [
+        'graph_token',
+        'google_token',
+        'machines_rows',
+        'recipients_contacts',
+        'whatsapp_templates',
+    ];
+
     public static function flush(): void
     {
+        foreach (self::KNOWN_KEYS as $k) {
+            self::forget($k);
+        }
         global $wpdb;
         $like = $wpdb->esc_like('_transient_excdis_') . '%';
         $wpdb->query($wpdb->prepare("DELETE FROM {$wpdb->options} WHERE option_name LIKE %s", $like));
