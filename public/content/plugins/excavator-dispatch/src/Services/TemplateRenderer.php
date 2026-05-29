@@ -20,11 +20,24 @@ use InfraSe\ExcavatorDispatch\Support\Settings;
  *                      returns "—" when no machine at that index
  *   {list:Col1,Col2}   inline list joined by ' · '
  *   {bullets:Col1,Col2} inline list joined by ' • '
+ *   {img:Column}       composes a full URL from the "Image URL pattern"
+ *                      setting (placeholder {value}) and the column value
  *   {count}            number of selected machines
  *   {recipient_name}   contact display name
  *   {recipient_phone}  contact phone (E.164)
  *   {recipient_org}    contact organization
  *   literal text       used as-is
+ *
+ * Carousel templates: add a "carousel" key alongside body/header/footer:
+ *   "carousel": {
+ *     "header_image": "{img:Foto}",          // header image link expression
+ *     "body": { "name": "{col:Modello}" },   // per-card body params
+ *     "buttons": [                            // optional, max 2 per card
+ *        { "sub_type": "url",         "param": "{col:Matricola}" },
+ *        { "sub_type": "quick_reply", "param": "interested-{col:Matricola}" }
+ *     ],
+ *     "max_cards": 10                         // optional, hard cap 10
+ *   }
  *
  * NOTE: WhatsApp Cloud API rejects parameters containing newlines, tabs,
  * or 5+ consecutive spaces. Vertical bulleted lists are not possible
@@ -66,7 +79,89 @@ final class TemplateRenderer
                 ];
             }
         }
+
+        if (!empty($config['carousel']) && is_array($config['carousel'])) {
+            $carousel = $this->build_carousel($config['carousel'], $machines, $recipient);
+            if ($carousel !== null) {
+                $components[] = $carousel;
+            }
+        }
+
         return $components;
+    }
+
+    private function build_carousel(array $cfg, array $machines, array $recipient): ?array
+    {
+        $max = max(1, min(10, (int) ($cfg['max_cards'] ?? 10)));
+        $selected = array_slice($machines, 0, $max);
+        if ($selected === []) {
+            return null;
+        }
+        $cards = [];
+        foreach ($selected as $idx => $machine) {
+            $ctx = [$machine];
+            $card_components = [];
+
+            if (!empty($cfg['header_image'])) {
+                $link = trim($this->evaluate((string) $cfg['header_image'], $ctx, $recipient));
+                if ($link !== '') {
+                    $card_components[] = [
+                        'type'       => 'header',
+                        'parameters' => [[
+                            'type'  => 'image',
+                            'image' => ['link' => $link],
+                        ]],
+                    ];
+                }
+            }
+
+            if (!empty($cfg['body']) && is_array($cfg['body'])) {
+                $is_named = $this->is_assoc($cfg['body']);
+                $params = [];
+                foreach ($cfg['body'] as $key => $expr) {
+                    $param = [
+                        'type' => 'text',
+                        'text' => self::sanitize_param($this->evaluate((string) $expr, $ctx, $recipient)),
+                    ];
+                    if ($is_named) {
+                        $param['parameter_name'] = (string) $key;
+                    }
+                    $params[] = $param;
+                }
+                $card_components[] = ['type' => 'body', 'parameters' => $params];
+            }
+
+            if (!empty($cfg['buttons']) && is_array($cfg['buttons'])) {
+                foreach ($cfg['buttons'] as $btn_index => $btn) {
+                    if (!is_array($btn) || empty($btn['sub_type'])) {
+                        continue;
+                    }
+                    $sub = (string) $btn['sub_type'];
+                    $value = self::sanitize_param($this->evaluate((string) ($btn['param'] ?? ''), $ctx, $recipient));
+                    $param_type = $sub === 'quick_reply' ? 'payload' : 'text';
+                    $param_key = $sub === 'quick_reply' ? 'payload' : 'text';
+                    $card_components[] = [
+                        'type'       => 'button',
+                        'sub_type'   => $sub,
+                        'index'      => (string) $btn_index,
+                        'parameters' => [[
+                            'type'      => $param_type,
+                            $param_key  => $value,
+                        ]],
+                    ];
+                }
+            }
+
+            $cards[] = [
+                'card_index' => $idx,
+                'components' => $card_components,
+            ];
+        }
+
+        return [
+            'type'  => 'carousel',
+            'cards' => $cards,
+        ];
     }
 
     public function evaluate(string $expression, array $machines, array $recipient = []): string
@@ -116,6 +211,22 @@ final class TemplateRenderer
 
         $expression = preg_replace_callback('/\{bullets:([^}]+)\}/u', static function (array $m) use ($machines): string {
             return self::join_columns($machines, $m[1], ' • ', '');
+        }, $expression) ?? $expression;
+
+        $expression = preg_replace_callback('/\{img:([^}]+)\}/u', static function (array $m) use ($machines): string {
+            $col = trim($m[1]);
+            $val = trim((string) ($machines[0][$col] ?? ''));
+            if ($val === '') {
+                return '';
+            }
+            if (preg_match('#^https?://#i', $val)) {
+                return $val;
+            }
+            $pattern = trim((string) Settings::get('image_url_pattern', ''));
+            if ($pattern === '' || strpos($pattern, '{value}') === false) {
+                return $val;
+            }
+            return str_replace('{value}', rawurlencode($val), $pattern);
         }, $expression) ?? $expression;
 
         return $expression;

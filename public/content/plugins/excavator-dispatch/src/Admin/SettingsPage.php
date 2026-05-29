@@ -68,6 +68,7 @@ final class SettingsPage
             'whatsapp_waba_id'           => sanitize_text_field((string) ($input['whatsapp_waba_id'] ?? '')),
             'whatsapp_access_token'      => (string) ($input['whatsapp_access_token'] ?? ''),
             'whatsapp_default_language'  => sanitize_text_field((string) ($input['whatsapp_default_language'] ?? 'it')),
+            'image_url_pattern'          => esc_url_raw((string) ($input['image_url_pattern'] ?? '')),
             'machine_id_column'          => sanitize_text_field((string) ($input['machine_id_column'] ?? '')),
             'machine_label_columns'      => array_filter(array_map('sanitize_text_field', array_map('trim', explode(',', (string) ($input['machine_label_columns'] ?? ''))))),
             'machine_filters'            => $this->parse_filters((string) ($input['machine_filters'] ?? '')),
@@ -147,6 +148,7 @@ final class SettingsPage
                     <?php $this->row('WhatsApp Business Account (WABA) ID', 'whatsapp_waba_id', $s); ?>
                     <?php $this->secret_row('Access Token (long-lived)', 'whatsapp_access_token', $s); ?>
                     <?php $this->row('Lingua template di default', 'whatsapp_default_language', $s, 'es: it, en_US'); ?>
+                    <?php $this->row('Image URL pattern (per template carousel — {value} è il segnaposto)', 'image_url_pattern', $s, 'es: https://wa.sertech.srl/wp-content/uploads/{value}.jpg'); ?>
                 </table>
 
                 <h2><?php esc_html_e('Macchine — colonne e filtri', 'excavator-dispatch'); ?></h2>
