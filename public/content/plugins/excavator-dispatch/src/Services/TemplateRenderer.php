@@ -16,6 +16,8 @@ use InfraSe\ExcavatorDispatch\Support\Settings;
  *
  * Expressions supported in any value:
  *   {col:Name}         first machine's "Name" column
+ *   {at:N,Col1,Col2}   N-th machine (0-based), joins given columns with space
+ *                      returns "—" when no machine at that index
  *   {list:Col1,Col2}   inline list joined by ' · '
  *   {bullets:Col1,Col2} inline list joined by ' • '
  *   {count}            number of selected machines
@@ -90,6 +92,22 @@ final class TemplateRenderer
         $expression = preg_replace_callback('/\{col:([^}]+)\}/u', static function (array $m) use ($machines): string {
             $col = trim($m[1]);
             return (string) ($machines[0][$col] ?? '');
+        }, $expression) ?? $expression;
+
+        $expression = preg_replace_callback('/\{at:(\d+),([^}]+)\}/u', static function (array $m) use ($machines): string {
+            $idx = (int) $m[1];
+            if (!isset($machines[$idx])) {
+                return '—';
+            }
+            $cols = array_map('trim', explode(',', $m[2]));
+            $parts = [];
+            foreach ($cols as $c) {
+                $v = trim((string) ($machines[$idx][$c] ?? ''));
+                if ($v !== '') {
+                    $parts[] = $v;
+                }
+            }
+            return $parts === [] ? '—' : implode(' ', $parts);
         }, $expression) ?? $expression;
 
         $expression = preg_replace_callback('/\{list:([^}]+)\}/u', static function (array $m) use ($machines): string {
