@@ -60,7 +60,7 @@ final class DispatchController
                 return new WP_Error('excdis_no_machines', 'Nessuna macchina selezionata corrisponde ai dati correnti.', ['status' => 400]);
             }
 
-            $components = (new TemplateRenderer())->build_components($template, $selected);
+            $renderer = new TemplateRenderer();
             $client = new WhatsAppCloudClient();
 
             $details = [];
@@ -74,6 +74,12 @@ final class DispatchController
                     $details[] = ['name' => $name, 'phone' => '', 'ok' => false, 'error' => 'Numero non valido'];
                     continue;
                 }
+                $recipient_ctx = [
+                    'name'         => $name,
+                    'phone'        => $to,
+                    'organization' => (string) ($r['organization'] ?? ''),
+                ];
+                $components = $renderer->build_components($template, $selected, $recipient_ctx);
                 try {
                     $resp = $client->send_template($to, $template, $language, $components);
                     $msg_id = $resp['messages'][0]['id'] ?? '';

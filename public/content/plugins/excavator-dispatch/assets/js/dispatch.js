@@ -170,7 +170,7 @@
 
         const recipients = state.recipients
             .filter((r) => state.selectedRecipients.has(r.resource_name))
-            .map((r) => ({ phone: r.phone, name: r.name }));
+            .map((r) => ({ phone: r.phone, name: r.name, organization: r.organization || '' }));
 
         setStatus(EXCDIS.i18n.loading, 'info');
         $('#excdis-send').disabled = true;
