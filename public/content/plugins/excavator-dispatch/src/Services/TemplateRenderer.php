@@ -16,7 +16,9 @@ use InfraSe\ExcavatorDispatch\Support\Settings;
  *
  * Expressions supported in any value:
  *   {col:Name}         first machine's "Name" column
- *   {list:Col1,Col2}   bullet list joining the columns for every machine
+ *   {list:Col1,Col2}   inline list joining the columns for every machine
+ *                      (uses " · " as separator — WhatsApp rejects parameters
+ *                      with newlines, tabs, or 5+ consecutive spaces)
  *   {count}            number of selected machines
  *   {recipient_name}   contact display name
  *   {recipient_phone}  contact phone (E.164)
@@ -44,7 +46,7 @@ final class TemplateRenderer
             foreach ($config[$type] as $key => $expr) {
                 $param = [
                     'type' => 'text',
-                    'text' => $this->evaluate((string) $expr, $machines, $recipient),
+                    'text' => self::sanitize_param($this->evaluate((string) $expr, $machines, $recipient)),
                 ];
                 if ($is_named) {
                     $param['parameter_name'] = (string) $key;
@@ -88,23 +90,31 @@ final class TemplateRenderer
 
         $expression = preg_replace_callback('/\{list:([^}]+)\}/u', static function (array $m) use ($machines): string {
             $cols = array_map('trim', explode(',', $m[1]));
-            $lines = [];
+            $items = [];
             foreach ($machines as $row) {
                 $parts = [];
                 foreach ($cols as $c) {
-                    $v = (string) ($row[$c] ?? '');
+                    $v = trim((string) ($row[$c] ?? ''));
                     if ($v !== '') {
                         $parts[] = $v;
                     }
                 }
                 if (!empty($parts)) {
-                    $lines[] = '- ' . implode(' ', $parts);
+                    $items[] = implode(' ', $parts);
                 }
             }
-            return implode("\n", $lines);
+            return implode(' · ', $items);
         }, $expression) ?? $expression;
 
         return $expression;
+    }
+
+    private static function sanitize_param(string $text): string
+    {
+        // WhatsApp rejects parameters containing newlines, tabs, or 5+ spaces.
+        $text = str_replace(["\r\n", "\r", "\n", "\t"], ' ', $text);
+        $text = preg_replace('/ {4,}/', '   ', $text) ?? $text;
+        return trim($text);
     }
 
     private function is_assoc(array $arr): bool
