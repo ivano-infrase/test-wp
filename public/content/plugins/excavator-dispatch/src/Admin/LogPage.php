@@ -37,7 +37,27 @@ final class LogPage
         ?>
         <div class="wrap">
             <h1><?php esc_html_e('Storico invii', 'excavator-dispatch'); ?></h1>
-            <table class="widefat striped">
+            <style>
+                .excdis-log { table-layout: fixed; width: 100%; }
+                .excdis-log th, .excdis-log td { word-wrap: break-word; overflow-wrap: anywhere; vertical-align: top; }
+                .excdis-log col.c-date { width: 140px; }
+                .excdis-log col.c-user { width: 110px; }
+                .excdis-log col.c-tpl { width: 200px; }
+                .excdis-log col.c-num { width: 70px; }
+                .excdis-log col.c-det { width: auto; }
+                .excdis-log .excdis-det { white-space: pre-wrap; word-break: break-word; max-height: 320px; overflow: auto; background: #f6f7f7; padding: 10px; border: 1px solid #dcdcde; border-radius: 4px; margin: 6px 0 0; font-size: 12px; }
+            </style>
+            <table class="widefat striped excdis-log">
+                <colgroup>
+                    <col class="c-date" />
+                    <col class="c-user" />
+                    <col class="c-tpl" />
+                    <col class="c-num" />
+                    <col class="c-num" />
+                    <col class="c-num" />
+                    <col class="c-num" />
+                    <col class="c-det" />
+                </colgroup>
                 <thead>
                     <tr>
                         <th><?php esc_html_e('Data', 'excavator-dispatch'); ?></th>
@@ -62,7 +82,7 @@ final class LogPage
                         <td><?php echo (int) $row['recipient_count']; ?></td>
                         <td><?php echo (int) $row['success_count']; ?></td>
                         <td><?php echo (int) $row['error_count']; ?></td>
-                        <td><details><summary><?php esc_html_e('Mostra', 'excavator-dispatch'); ?></summary><pre style="max-height:300px;overflow:auto"><?php echo esc_html((string) $row['details']); ?></pre></details></td>
+                        <td><details><summary><?php esc_html_e('Mostra', 'excavator-dispatch'); ?></summary><pre class="excdis-det"><?php echo esc_html((string) $row['details']); ?></pre></details></td>
                     </tr>
                 <?php endforeach; endif; ?>
                 </tbody>

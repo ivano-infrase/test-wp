@@ -79,7 +79,12 @@ final class WhatsAppCloudClient
         $body = (string) wp_remote_retrieve_body($resp);
         $data = json_decode($body, true);
         if ($code < 200 || $code >= 300) {
-            $msg = $data['error']['message'] ?? $body;
+            $err = $data['error'] ?? [];
+            $msg = (string) ($err['message'] ?? $body);
+            $details = (string) ($err['error_data']['details'] ?? '');
+            if ($details !== '') {
+                $msg .= ' — ' . $details;
+            }
             throw new RuntimeException("WhatsApp {$code}: {$msg}");
         }
         return is_array($data) ? $data : [];
