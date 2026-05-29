@@ -16,9 +16,10 @@ use InfraSe\ExcavatorDispatch\Support\Settings;
  *
  * Expressions supported in any value:
  *   {col:Name}         first machine's "Name" column
- *   {list:Col1,Col2}   inline list joining the columns for every machine
- *                      (uses " · " as separator — WhatsApp rejects parameters
- *                      with newlines, tabs, or 5+ consecutive spaces)
+ *   {list:Col1,Col2}   inline list joined by ' · ' (always safe)
+ *   {bullets:Col1,Col2} newline-separated bulleted list "• …"
+ *                      (some WhatsApp template categories reject newlines;
+ *                      if Meta returns #100 Invalid parameter, fall back to {list:…})
  *   {count}            number of selected machines
  *   {recipient_name}   contact display name
  *   {recipient_phone}  contact phone (E.164)
@@ -89,21 +90,11 @@ final class TemplateRenderer
         }, $expression) ?? $expression;
 
         $expression = preg_replace_callback('/\{list:([^}]+)\}/u', static function (array $m) use ($machines): string {
-            $cols = array_map('trim', explode(',', $m[1]));
-            $items = [];
-            foreach ($machines as $row) {
-                $parts = [];
-                foreach ($cols as $c) {
-                    $v = trim((string) ($row[$c] ?? ''));
-                    if ($v !== '') {
-                        $parts[] = $v;
-                    }
-                }
-                if (!empty($parts)) {
-                    $items[] = implode(' ', $parts);
-                }
-            }
-            return implode(' · ', $items);
+            return self::join_columns($machines, $m[1], ' · ', '');
+        }, $expression) ?? $expression;
+
+        $expression = preg_replace_callback('/\{bullets:([^}]+)\}/u', static function (array $m) use ($machines): string {
+            return self::join_columns($machines, $m[1], "\n", '• ');
         }, $expression) ?? $expression;
 
         return $expression;
@@ -111,10 +102,32 @@ final class TemplateRenderer
 
     private static function sanitize_param(string $text): string
     {
-        // WhatsApp rejects parameters containing newlines, tabs, or 5+ spaces.
-        $text = str_replace(["\r\n", "\r", "\n", "\t"], ' ', $text);
+        // Normalise line endings, strip tabs, collapse 5+ spaces.
+        // Newlines are left intact — {bullets:…} needs them and modern Cloud
+        // API accepts them for most template categories.
+        $text = str_replace(["\r\n", "\r"], "\n", $text);
+        $text = str_replace("\t", ' ', $text);
         $text = preg_replace('/ {4,}/', '   ', $text) ?? $text;
         return trim($text);
+    }
+
+    private static function join_columns(array $machines, string $cols_csv, string $sep, string $prefix): string
+    {
+        $cols = array_map('trim', explode(',', $cols_csv));
+        $items = [];
+        foreach ($machines as $row) {
+            $parts = [];
+            foreach ($cols as $c) {
+                $v = trim((string) ($row[$c] ?? ''));
+                if ($v !== '') {
+                    $parts[] = $v;
+                }
+            }
+            if (!empty($parts)) {
+                $items[] = $prefix . implode(' ', $parts);
+            }
+        }
+        return implode($sep, $items);
     }
 
     private function is_assoc(array $arr): bool
