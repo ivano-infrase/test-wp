@@ -60,4 +60,22 @@ final class Logger
         $rows = $wpdb->get_results("SELECT * FROM {$table} ORDER BY id DESC LIMIT {$limit}", ARRAY_A);
         return is_array($rows) ? $rows : [];
     }
+
+    public static function delete_older_than(int $days): int
+    {
+        global $wpdb;
+        $days = max(0, $days);
+        $cutoff = gmdate('Y-m-d H:i:s', time() - $days * DAY_IN_SECONDS);
+        $deleted = $wpdb->query(
+            $wpdb->prepare("DELETE FROM " . self::table() . " WHERE created_at < %s", $cutoff)
+        );
+        return (int) $deleted;
+    }
+
+    public static function delete_all(): int
+    {
+        global $wpdb;
+        $deleted = $wpdb->query("DELETE FROM " . self::table());
+        return (int) $deleted;
+    }
 }

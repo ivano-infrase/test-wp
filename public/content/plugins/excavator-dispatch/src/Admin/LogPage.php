@@ -11,9 +11,32 @@ final class LogPage
 {
     private const SLUG = Plugin::MENU_SLUG . '-log';
 
+    private const NONCE_PRUNE = 'excdis_log_prune';
+
     public function register(): void
     {
         add_action('admin_menu', [$this, 'add_submenu'], 30);
+        add_action('admin_post_excdis_prune_log', [$this, 'handle_prune']);
+    }
+
+    public function handle_prune(): void
+    {
+        if (!current_user_can(Plugin::CAPABILITY)) {
+            wp_die('forbidden');
+        }
+        check_admin_referer(self::NONCE_PRUNE);
+        $mode = sanitize_key((string) ($_POST['mode'] ?? 'older'));
+        if ($mode === 'all') {
+            $count = Logger::delete_all();
+        } else {
+            $days = max(0, (int) ($_POST['days'] ?? 30));
+            $count = Logger::delete_older_than($days);
+        }
+        wp_safe_redirect(add_query_arg(
+            ['page' => self::SLUG, 'pruned' => $count],
+            admin_url('admin.php')
+        ));
+        exit;
     }
 
     public function add_submenu(): void
@@ -37,6 +60,28 @@ final class LogPage
         ?>
         <div class="wrap">
             <h1><?php esc_html_e('Storico invii', 'excavator-dispatch'); ?></h1>
+            <?php if (isset($_GET['pruned'])): ?>
+                <div class="notice notice-success is-dismissible"><p>
+                    <?php printf(
+                        /* translators: %d is the number of deleted rows. */
+                        esc_html__('Eliminate %d righe dallo storico.', 'excavator-dispatch'),
+                        (int) $_GET['pruned']
+                    ); ?>
+                </p></div>
+            <?php endif; ?>
+            <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="margin: 12px 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <input type="hidden" name="action" value="excdis_prune_log" />
+                <?php wp_nonce_field(self::NONCE_PRUNE); ?>
+                <label>
+                    <?php esc_html_e('Elimina righe più vecchie di', 'excavator-dispatch'); ?>
+                    <input type="number" name="days" value="30" min="0" step="1" style="width: 70px;" />
+                    <?php esc_html_e('giorni', 'excavator-dispatch'); ?>
+                </label>
+                <button class="button" name="mode" value="older"><?php esc_html_e('Pulisci', 'excavator-dispatch'); ?></button>
+                <button class="button button-link-delete" name="mode" value="all"
+                    onclick="return confirm('<?php echo esc_js(__('Eliminare TUTTO lo storico?', 'excavator-dispatch')); ?>');"
+                ><?php esc_html_e('Cancella tutto', 'excavator-dispatch'); ?></button>
+            </form>
             <style>
                 .excdis-log { table-layout: fixed; width: 100%; }
                 .excdis-log th, .excdis-log td { word-wrap: break-word; overflow-wrap: anywhere; vertical-align: top; }

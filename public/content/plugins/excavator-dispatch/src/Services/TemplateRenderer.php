@@ -60,6 +60,13 @@ final class TemplateRenderer
             if (empty($config[$type]) || !is_array($config[$type])) {
                 continue;
             }
+            if ($type === 'header' && $this->is_media_header($config[$type])) {
+                $media = $this->build_media_header($config[$type], $machines, $recipient);
+                if ($media !== null) {
+                    $components[] = $media;
+                }
+                continue;
+            }
             $is_named = $this->is_assoc($config[$type]);
             $params = [];
             foreach ($config[$type] as $key => $expr) {
@@ -88,6 +95,37 @@ final class TemplateRenderer
         }
 
         return $components;
+    }
+
+    private function is_media_header(array $cfg): bool
+    {
+        foreach (['image', 'video', 'document'] as $k) {
+            if (array_key_exists($k, $cfg)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private function build_media_header(array $cfg, array $machines, array $recipient): ?array
+    {
+        foreach (['image', 'video', 'document'] as $kind) {
+            if (empty($cfg[$kind])) {
+                continue;
+            }
+            $link = trim($this->evaluate((string) $cfg[$kind], $machines, $recipient));
+            if ($link === '') {
+                return null;
+            }
+            return [
+                'type'       => 'header',
+                'parameters' => [[
+                    'type' => $kind,
+                    $kind  => ['link' => $link],
+                ]],
+            ];
+        }
+        return null;
     }
 
     private function build_carousel(array $cfg, array $machines, array $recipient): ?array
