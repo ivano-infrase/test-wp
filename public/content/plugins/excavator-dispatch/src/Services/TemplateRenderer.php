@@ -87,6 +87,12 @@ final class TemplateRenderer
             }
         }
 
+        if (!empty($config['buttons']) && is_array($config['buttons'])) {
+            foreach ($this->build_buttons($config['buttons'], $machines, $recipient) as $btn) {
+                $components[] = $btn;
+            }
+        }
+
         if (!empty($config['carousel']) && is_array($config['carousel'])) {
             $carousel = $this->build_carousel($config['carousel'], $machines, $recipient);
             if ($carousel !== null) {
@@ -105,6 +111,51 @@ final class TemplateRenderer
             }
         }
         return false;
+    }
+
+    /**
+     * Builds button components for a non-carousel template.
+     *
+     * Each button entry shape:
+     *   { "sub_type": "url"|"quick_reply"|"copy_code", "param": "...", "index": 0 }
+     *
+     * Static buttons (URL without variable, Phone, plain Quick Reply) don't
+     * need an entry here — Meta resolves them from the template definition.
+     */
+    private function build_buttons(array $buttons, array $machines, array $recipient): array
+    {
+        $out = [];
+        $auto_index = 0;
+        foreach ($buttons as $key => $btn) {
+            if (!is_array($btn) || empty($btn['sub_type'])) {
+                $auto_index++;
+                continue;
+            }
+            $sub = (string) $btn['sub_type'];
+            $index = isset($btn['index']) ? (int) $btn['index'] : (is_int($key) ? $key : $auto_index);
+            $value = self::sanitize_param($this->evaluate((string) ($btn['param'] ?? ''), $machines, $recipient));
+
+            switch ($sub) {
+                case 'quick_reply':
+                    $param = ['type' => 'payload', 'payload' => $value];
+                    break;
+                case 'copy_code':
+                    $param = ['type' => 'coupon_code', 'coupon_code' => $value];
+                    break;
+                case 'url':
+                default:
+                    $param = ['type' => 'text', 'text' => $value];
+                    break;
+            }
+            $out[] = [
+                'type'       => 'button',
+                'sub_type'   => $sub,
+                'index'      => (string) $index,
+                'parameters' => [$param],
+            ];
+            $auto_index++;
+        }
+        return $out;
     }
 
     private function build_media_header(array $cfg, array $machines, array $recipient): ?array
